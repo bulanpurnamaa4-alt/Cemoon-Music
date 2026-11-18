@@ -1,159 +1,140 @@
 
--- CEMOON MUSIC PLAYER 💜
--- LocalScript
+--// CEMOON MUSIC 🌙
+--// Floating Crescent Menu
 
-local Players = game:GetService("Players")
 local SoundService = game:GetService("SoundService")
-local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
--- GUI
+local oldGui = playerGui:FindFirstChild("CemoonMusic")
+if oldGui then
+    oldGui:Destroy()
+end
+
+local sound = Instance.new("Sound")
+sound.Name = "CemoonMusicSound"
+sound.Volume = 0.5
+sound.Parent = SoundService
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "CemoonMusic"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Parent = playerGui
 
--- MAIN FRAME
+--// Floating Moon Button
+local menuButton = Instance.new("TextButton")
+menuButton.Name = "MoonButton"
+menuButton.Size = UDim2.new(0, 58, 0, 58)
+menuButton.Position = UDim2.new(1, -75, 1, -120)
+menuButton.BackgroundColor3 = Color3.fromRGB(90, 35, 150)
+menuButton.Text = "🌙"
+menuButton.TextSize = 30
+menuButton.TextColor3 = Color3.new(1, 1, 1)
+menuButton.Parent = gui
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(1, 0)
+buttonCorner.Parent = menuButton
+
+local buttonStroke = Instance.new("UIStroke")
+buttonStroke.Color = Color3.fromRGB(190, 120, 255)
+buttonStroke.Thickness = 2
+buttonStroke.Parent = menuButton
+
+--// Music Panel
 local frame = Instance.new("Frame")
-frame.Name = "MainFrame"
-frame.Size = UDim2.fromOffset(260, 180)
-frame.Position = UDim2.new(0.5, -130, 0.5, -90)
-frame.BackgroundColor3 = Color3.fromRGB(35, 20, 55)
-frame.BorderSizePixel = 0
-frame.Active = true
+frame.Size = UDim2.new(0, 270, 0, 180)
+frame.Position = UDim2.new(0.5, -135, 0.5, -90)
+frame.BackgroundColor3 = Color3.fromRGB(25, 15, 40)
+frame.Visible = false
 frame.Parent = gui
 
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = frame
 
--- TITLE / DRAG BAR
-local title = Instance.new("TextButton")
-title.Name = "DragBar"
-title.Size = UDim2.new(1, 0, 0, 42)
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(150, 80, 220)
+stroke.Thickness = 2
+stroke.Parent = frame
+
+--// Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -45, 0, 40)
+title.Position = UDim2.new(0, 12, 0, 5)
 title.BackgroundTransparency = 1
-title.Text = "CEMOON MUSIC 💜"
+title.Text = "CEMOON MUSIC 🌙"
 title.TextColor3 = Color3.fromRGB(210, 160, 255)
-title.TextSize = 20
+title.TextSize = 18
 title.Font = Enum.Font.GothamBold
-title.Active = true
 title.Parent = frame
 
--- DRAG SYSTEM: MOBILE + PC
-local dragging = false
-local dragInput
-local dragStart
-local startPos
+--// Music ID
+local idBox = Instance.new("TextBox")
+idBox.Size = UDim2.new(1, -30, 0, 38)
+idBox.Position = UDim2.new(0, 15, 0, 55)
+idBox.BackgroundColor3 = Color3.fromRGB(50, 35, 65)
+idBox.PlaceholderText = "Masukkan Music ID..."
+idBox.Text = ""
+idBox.TextColor3 = Color3.new(1, 1, 1)
+idBox.PlaceholderColor3 = Color3.fromRGB(170, 150, 190)
+idBox.TextSize = 14
+idBox.Font = Enum.Font.Gotham
+idBox.ClearTextOnFocus = false
+idBox.Parent = frame
 
-title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch
-    or input.UserInputType == Enum.UserInputType.MouseButton1 then
+Instance.new("UICorner", idBox).CornerRadius = UDim.new(0, 8)
 
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-title.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch
-    or input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        local delta = input.Position - dragStart
-
-        frame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- MUSIC ID INPUT
-local musicInput = Instance.new("TextBox")
-musicInput.Name = "MusicID"
-musicInput.Size = UDim2.new(0.85, 0, 0, 35)
-musicInput.Position = UDim2.new(0.075, 0, 0, 52)
-musicInput.PlaceholderText = "Masukkan Music ID..."
-musicInput.Text = ""
-musicInput.TextSize = 15
-musicInput.Font = Enum.Font.Gotham
-musicInput.BackgroundColor3 = Color3.fromRGB(65, 45, 85)
-musicInput.TextColor3 = Color3.new(1, 1, 1)
-musicInput.PlaceholderColor3 = Color3.fromRGB(190, 175, 205)
-musicInput.ClearTextOnFocus = false
-musicInput.Parent = frame
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 7)
-inputCorner.Parent = musicInput
-
--- STATUS
+--// Status
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 22)
-status.Position = UDim2.new(0, 0, 0, 91)
+status.Size = UDim2.new(1, -20, 0, 22)
+status.Position = UDim2.new(0, 10, 0, 98)
 status.BackgroundTransparency = 1
-status.Text = "CEMOON READY 💜"
-status.TextColor3 = Color3.fromRGB(210, 160, 255)
+status.Text = "Cemoon Music Ready 💜"
+status.TextColor3 = Color3.fromRGB(190, 160, 220)
 status.TextSize = 12
 status.Font = Enum.Font.Gotham
 status.Parent = frame
 
--- SOUND
-local sound = Instance.new("Sound")
-sound.Name = "CemoonMusicSound"
-sound.Volume = 0.5
-sound.Parent = SoundService
-
--- PLAY BUTTON
+--// Play Button
 local play = Instance.new("TextButton")
-play.Size = UDim2.new(0.38, 0, 0, 35)
-play.Position = UDim2.new(0.08, 0, 0, 125)
-play.Text = "Mainkan"
+play.Size = UDim2.new(0, 110, 0, 35)
+play.Position = UDim2.new(0, 15, 0, 130)
+play.BackgroundColor3 = Color3.fromRGB(115, 55, 180)
+play.Text = "▶ PLAY"
+play.TextColor3 = Color3.new(1, 1, 1)
 play.TextSize = 14
 play.Font = Enum.Font.GothamBold
-play.BackgroundColor3 = Color3.fromRGB(120, 65, 180)
-play.TextColor3 = Color3.new(1, 1, 1)
 play.Parent = frame
 
-local playCorner = Instance.new("UICorner")
-playCorner.CornerRadius = UDim.new(0, 7)
-playCorner.Parent = play
+Instance.new("UICorner", play).CornerRadius = UDim.new(0, 8)
 
--- STOP BUTTON
+--// Stop Button
 local stop = Instance.new("TextButton")
-stop.Size = UDim2.new(0.38, 0, 0, 35)
-stop.Position = UDim2.new(0.54, 0, 0, 125)
-stop.Text = "Berhenti"
+stop.Size = UDim2.new(0, 110, 0, 35)
+stop.Position = UDim2.new(1, -125, 0, 130)
+stop.BackgroundColor3 = Color3.fromRGB(85, 45, 110)
+stop.Text = "■ STOP"
+stop.TextColor3 = Color3.new(1, 1, 1)
 stop.TextSize = 14
 stop.Font = Enum.Font.GothamBold
-stop.BackgroundColor3 = Color3.fromRGB(85, 45, 110)
-stop.TextColor3 = Color3.new(1, 1, 1)
 stop.Parent = frame
 
-local stopCorner = Instance.new("UICorner")
-stopCorner.CornerRadius = UDim.new(0, 7)
-stopCorner.Parent = stop
+Instance.new("UICorner", stop).CornerRadius = UDim.new(0, 8)
 
--- PLAY FUNCTION
+--// Menu Toggle
+menuButton.Activated:Connect(function()
+    frame.Visible = not frame.Visible
+end)
+
+--// Play Music
 play.Activated:Connect(function()
-    local id = musicInput.Text:match("^%s*(%d+)%s*$")
+    local id = idBox.Text:match("%d+")
 
     if not id then
-        status.Text = "Music ID tidak valid!"
+        status.Text = "Masukkan Music ID dulu!"
         return
     end
 
@@ -161,22 +142,11 @@ play.Activated:Connect(function()
     sound.SoundId = "rbxassetid://" .. id
     sound:Play()
 
-    status.Text = "Memutar musik..."
+    status.Text = "Memutar musik 💜"
 end)
 
--- STOP FUNCTION
+--// Stop Music
 stop.Activated:Connect(function()
     sound:Stop()
-    status.Text = "Musik dihentikan."
-end)
-
--- PLAYBACK STATUS
-sound.Ended:Connect(function()
-    status.Text = "Musik selesai."
-end)
-
-sound:GetPropertyChangedSignal("IsPlaying"):Connect(function()
-    if sound.IsPlaying then
-        status.Text = "Musik sedang diputar 💜"
-    end
+    status.Text = "Musik dihentikan"
 end)
