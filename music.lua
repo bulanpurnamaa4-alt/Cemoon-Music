@@ -1,59 +1,74 @@
-
 --[[
-    CEMOON MUSIC v2.0
-    LUNAR EDITION 🌙
+    CEMOON MUSIC v2.1
+    LUNAR EDITION ð
     Mobile + PC
 ]]
 
 local Players = game:GetService("Players")
 local SoundService = game:GetService("SoundService")
 local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- CLEANUP
-local old = playerGui:FindFirstChild("CemoonMusic")
-if old then old:Destroy() end
+local oldGui = playerGui:FindFirstChild("CemoonMusic")
+if oldGui then oldGui:Destroy() end
+
+local oldSound = SoundService:FindFirstChild("CemoonMusicSound")
+if oldSound then oldSound:Destroy() end
 
 -- CONFIG
-local FILE = "CemoonMusic_SavedIDs.json"
+local FILE = "CemoonMusic_Database.json"
+local DARK = Color3.fromRGB(13, 12, 17)
+local PANEL = Color3.fromRGB(25, 23, 30)
+local CARD = Color3.fromRGB(31, 29, 37)
 local PURPLE = Color3.fromRGB(145, 85, 210)
-local DARK = Color3.fromRGB(17, 16, 21)
-local PANEL = Color3.fromRGB(27, 25, 32)
 local WHITE = Color3.fromRGB(240, 237, 245)
+local MUTED = Color3.fromRGB(145, 138, 155)
 
-local savedIDs = {}
+local savedSongs = {}
 local rgbEnabled = false
 local minimized = false
+local activeTab = 1
 
 -- STORAGE
-local function loadIDs()
-    if type(readfile) == "function" then
-        local ok, data = pcall(function()
-            return readfile(FILE)
+local function saveDatabase()
+    if type(writefile) == "function" then
+        pcall(function()
+            writefile(FILE, HttpService:JSONEncode(savedSongs))
         end)
-        if ok then
-            local success, decoded = pcall(function()
-                return game:GetService("HttpService"):JSONDecode(data)
-            end)
-            if success and type(decoded) == "table" then
-                savedIDs = decoded
-            end
+    end
+end
+
+local function loadDatabase()
+    if type(readfile) ~= "function" then return end
+    local ok, raw = pcall(function() return readfile(FILE) end)
+    if not ok or type(raw) ~= "string" then return end
+
+    local decodedOK, decoded = pcall(function()
+        return HttpService:JSONDecode(raw)
+    end)
+    if not decodedOK or type(decoded) ~= "table" then return end
+
+    for _, entry in ipairs(decoded) do
+        if type(entry) == "table" and entry.id then
+            table.insert(savedSongs, {
+                name = tostring(entry.name or "Tanpa Nama"),
+                id = tostring(entry.id)
+            })
+        elseif type(entry) == "string" or type(entry) == "number" then
+            -- Import old v2.0 ID-only database
+            table.insert(savedSongs, {
+                name = "Musik " .. tostring(entry),
+                id = tostring(entry)
+            })
         end
     end
 end
 
-local function saveIDs()
-    if type(writefile) == "function" then
-        pcall(function()
-            writefile(FILE,
-                game:GetService("HttpService"):JSONEncode(savedIDs))
-        end)
-    end
-end
-
-loadIDs()
+loadDatabase()
 
 -- SOUND
 local sound = Instance.new("Sound")
@@ -61,44 +76,22 @@ sound.Name = "CemoonMusicSound"
 sound.Volume = 0.5
 sound.Parent = SoundService
 
--- GUI
-local gui = Instance.new("ScreenGui")
-gui.Name = "CemoonMusic"
-gui.ResetOnSpawn = false
-gui.Parent = playerGui
-
-local main = Instance.new("Frame")
-main.Name = "Main"
-main.Size = UDim2.fromOffset(370, 330)
-main.Position = UDim2.new(0.5, -185, 0.5, -165)
-main.BackgroundColor3 = DARK
-main.BorderSizePixel = 0
-main.Active = true
-main.Parent = gui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 17)
-corner.Parent = main
-
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(70, 55, 85)
-stroke.Thickness = 1
-stroke.Parent = main
-
--- HELPER
-local function make(class, props, parent)
-    local obj = Instance.new(class)
-    for k, v in pairs(props) do
-        obj[k] = v
-    end
-    obj.Parent = parent
-    return obj
+-- HELPERS
+local function make(className, props, parent)
+    local object = Instance.new(className)
+    for key, value in pairs(props) do object[key] = value end
+    object.Parent = parent
+    return object
 end
 
-local function button(parent, text, size, pos, color)
+local function round(object, radius)
+    make("UICorner", {CornerRadius = UDim.new(0, radius or 9)}, object)
+end
+
+local function button(parent, text, size, position, color)
     local b = make("TextButton", {
         Size = size,
-        Position = pos,
+        Position = position,
         BackgroundColor3 = color or PANEL,
         Text = text,
         TextColor3 = WHITE,
@@ -107,367 +100,428 @@ local function button(parent, text, size, pos, color)
         AutoButtonColor = true,
         BorderSizePixel = 0
     }, parent)
-
-    make("UICorner", {
-        CornerRadius = UDim.new(0, 9)
-    }, b)
-
+    round(b, 9)
     return b
 end
 
--- HEADER
-local header = make("Frame", {
-    Size = UDim2.new(1, 0, 0, 53),
-    BackgroundTransparency = 1
+local function label(parent, text, size, position, textSize, color, bold)
+    return make("TextLabel", {
+        Size = size,
+        Position = position,
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color or WHITE,
+        Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham,
+        TextSize = textSize or 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
+    }, parent)
+end
+
+local function textBox(parent, placeholder, size, position)
+    local box = make("TextBox", {
+        Size = size,
+        Position = position,
+        BackgroundColor3 = CARD,
+        PlaceholderText = placeholder,
+        PlaceholderColor3 = MUTED,
+        Text = "",
+        TextColor3 = WHITE,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        ClearTextOnFocus = false,
+        BorderSizePixel = 0,
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, parent)
+    round(box, 8)
+    return box
+end
+
+-- GUI
+local gui = make("ScreenGui", {
+    Name = "CemoonMusic",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+}, playerGui)
+
+local main = make("Frame", {
+    Name = "Main",
+    Size = UDim2.fromOffset(560, 410),
+    Position = UDim2.new(0.5, -280, 0.5, -205),
+    BackgroundColor3 = DARK,
+    BorderSizePixel = 0,
+    Active = true,
+    ClipsDescendants = true
+}, gui)
+round(main, 18)
+
+local stroke = make("UIStroke", {
+    Color = Color3.fromRGB(75, 57, 91),
+    Thickness = 1.2
 }, main)
 
-local title = make("TextLabel", {
-    Position = UDim2.fromOffset(16, 5),
-    Size = UDim2.new(1, -115, 0, 25),
+-- Keep the window inside the visible screen
+local function fitWindow()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local viewport = camera.ViewportSize
+    local width = math.min(560, math.max(300, viewport.X - 24))
+    local height = math.min(410, math.max(280, viewport.Y - 24))
+    main.Size = UDim2.fromOffset(width, height)
+    main.Position = UDim2.new(0.5, -width / 2, 0.5, -height / 2)
+end
+fitWindow()
+
+-- HEADER
+local header = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 58),
     BackgroundTransparency = 1,
-    Text = "🌙 CEMOON MUSIC",
-    TextColor3 = WHITE,
-    TextSize = 17,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, header)
+    Active = true
+}, main)
 
-local subtitle = make("TextLabel", {
-    Position = UDim2.fromOffset(17, 29),
-    Size = UDim2.new(1, -120, 0, 15),
-    BackgroundTransparency = 1,
-    Text = "Lunar Edition • v2.0",
-    TextColor3 = Color3.fromRGB(145, 135, 155),
-    TextSize = 10,
-    Font = Enum.Font.Gotham
-}, header)
+label(header, "ð CEMOON MUSIC", UDim2.new(1, -155, 0, 26),
+    UDim2.fromOffset(17, 5), 17, WHITE, true)
+label(header, "Lunar Edition â¢ v2.1", UDim2.new(1, -155, 0, 17),
+    UDim2.fromOffset(18, 31), 10, MUTED, false)
 
-local rgb = button(header, "RGB", UDim2.fromOffset(48, 28),
-    UDim2.new(1, -100, 0, 12), PURPLE)
+local rgb = button(header, "RGB", UDim2.fromOffset(55, 30),
+    UDim2.new(1, -128, 0, 14), Color3.fromRGB(80, 220, 90))
+local minimize = button(header, "â", UDim2.fromOffset(34, 30),
+    UDim2.new(1, -48, 0, 14), PANEL)
 
-local minimize = button(header, "—", UDim2.fromOffset(30, 28),
-    UDim2.new(1, -43, 0, 12), PANEL)
-
--- DRAG SYSTEM
-local dragging = false
-local dragStart
-local startPos
-
+-- DRAG (ignore taps on header buttons)
+local dragging, dragStart, startPos = false, nil, nil
 header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch
-    or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = main.Position
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local x = input.Position.X
+        local rightEdge = main.AbsolutePosition.X + main.AbsoluteSize.X
+        if x < rightEdge - 170 then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+        end
     end
 end)
 
 UIS.InputChanged:Connect(function(input)
-    if dragging and (
-        input.UserInputType == Enum.UserInputType.Touch
-        or input.UserInputType == Enum.UserInputType.MouseMovement
-    ) then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
 UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch
-    or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
--- NAVIGATION
+-- NAVIGATION + CONTENT
 local nav = make("Frame", {
-    Position = UDim2.fromOffset(12, 57),
-    Size = UDim2.new(1, -24, 0, 34),
+    Position = UDim2.fromOffset(12, 64),
+    Size = UDim2.new(1, -24, 0, 36),
     BackgroundTransparency = 1
 }, main)
 
-local navNames = {"ID Musik", "Database", "Daftar Musik", "Kredit"}
-local pages = {}
-local tabs = {}
-
 local content = make("Frame", {
-    Position = UDim2.fromOffset(12, 100),
-    Size = UDim2.new(1, -24, 1, -112),
+    Position = UDim2.fromOffset(12, 108),
+    Size = UDim2.new(1, -24, 1, -120),
     BackgroundTransparency = 1,
     ClipsDescendants = true
 }, main)
 
+local navNames = {"ID Musik", "Database", "Daftar Musik", "Kredit"}
+local pages, tabs = {}, {}
+
 for i, name in ipairs(navNames) do
     local tab = button(nav, name,
         UDim2.new(0.25, -4, 1, 0),
-        UDim2.new((i-1)*0.25, (i-1)*4, 0, 0),
-        PANEL)
-    tab.TextSize = 10
+        UDim2.new((i - 1) * 0.25, (i - 1) * 4, 0, 0), PANEL)
+    tab.TextSize = 11
     tabs[i] = tab
 
-    local page = make("Frame", {
+    pages[i] = make("Frame", {
         Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
         Visible = i == 1
     }, content)
-    pages[i] = page
 end
 
 local function switchPage(index)
+    activeTab = index
     for i, page in ipairs(pages) do
         page.Visible = i == index
-        tabs[i].BackgroundColor3 =
-            i == index and PURPLE or PANEL
+        tabs[i].BackgroundColor3 = i == index and PURPLE or PANEL
     end
 end
-
 for i, tab in ipairs(tabs) do
-    tab.Activated:Connect(function()
-        switchPage(i)
-    end)
+    tab.Activated:Connect(function() switchPage(i) end)
 end
+switchPage(1)
 
 -- PAGE 1: ID MUSIK
 local p1 = pages[1]
+local idInput = textBox(p1, "Masukkan ID musik...", UDim2.new(1, -10, 0, 40),
+    UDim2.fromOffset(5, 12))
+local status = label(p1, "â CEMOON READY", UDim2.new(1, -10, 0, 24),
+    UDim2.fromOffset(5, 58), 11, Color3.fromRGB(190, 150, 230), false)
 
-local input = make("TextBox", {
-    Position = UDim2.fromOffset(5, 12),
-    Size = UDim2.new(1, -10, 0, 40),
-    BackgroundColor3 = PANEL,
-    PlaceholderText = "Masukkan Music ID...",
-    PlaceholderColor3 = Color3.fromRGB(140, 135, 150),
-    Text = "",
-    TextColor3 = WHITE,
-    Font = Enum.Font.Gotham,
-    TextSize = 13,
-    ClearTextOnFocus = false,
-    BorderSizePixel = 0
-}, p1)
+local playButton = button(p1, "â¶ PLAY",
+    UDim2.new(0.5, -7, 0, 38), UDim2.fromOffset(5, 91), PURPLE)
+local stopButton = button(p1, "â  STOP",
+    UDim2.new(0.5, -7, 0, 38), UDim2.new(0.5, 2, 0, 91), PANEL)
+local saveIdButton = button(p1, "ï¼ SIMPAN ID KE DATABASE",
+    UDim2.new(1, -10, 0, 36), UDim2.fromOffset(5, 139), PANEL)
 
-make("UICorner", {
-    CornerRadius = UDim.new(0, 9)
-}, input)
-
-local status = make("TextLabel", {
-    Position = UDim2.fromOffset(5, 57),
-    Size = UDim2.new(1, -10, 0, 22),
-    BackgroundTransparency = 1,
-    Text = "● CEMOON READY",
-    TextColor3 = Color3.fromRGB(190, 150, 230),
-    TextSize = 11,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Left
-}, p1)
-
-local play = button(p1, "▶ PLAY",
-    UDim2.new(0.48, -3, 0, 38),
-    UDim2.fromOffset(5, 87), PURPLE)
-
-local stop = button(p1, "■ STOP",
-    UDim2.new(0.48, -3, 0, 38),
-    UDim2.new(0.52, 0, 0, 87), PANEL)
-
-local save = button(p1, "＋ SAVE ID",
-    UDim2.new(1, -10, 0, 35),
-    UDim2.fromOffset(5, 135), PANEL)
-
-local function getID()
-    return input.Text:match("^%s*(%d+)%s*$")
+local function playID(id)
+    if not id or not tostring(id):match("^%d+$") then
+        status.Text = "ID MUSIK TIDAK VALID"
+        return
+    end
+    sound:Stop()
+    sound.SoundId = "rbxassetid://" .. tostring(id)
+    sound:Play()
+    status.Text = "â MEMUTAR ID " .. tostring(id)
 end
 
-play.Activated:Connect(function()
-    local id = getID()
-    if not id then
-        status.Text = "ID MUSIK TIDAK VALID!"
-        return
-    end
-
+playButton.Activated:Connect(function()
+    local id = idInput.Text:match("^%s*(%d+)%s*$")
+    if not id then status.Text = "MASUKKAN ID TERLEBIH DAHULU" return end
+    playID(id)
+end)
+stopButton.Activated:Connect(function()
     sound:Stop()
-    sound.SoundId = "rbxassetid://" .. id
-    sound:Play()
-    status.Text = "● MEMUTAR MUSIK..."
+    status.Text = "â MUSIK DIHENTIKAN"
 end)
 
-stop.Activated:Connect(function()
-    sound:Stop()
-    status.Text = "● MUSIK DIHENTIKAN"
-end)
-
-save.Activated:Connect(function()
-    local id = getID()
-    if not id then
-        status.Text = "MASUKKAN ID TERLEBIH DAHULU"
-        return
-    end
-
-    for _, existing in ipairs(savedIDs) do
-        if tostring(existing) == id then
-            status.Text = "ID SUDAH TERSIMPAN"
-            return
-        end
-    end
-
-    table.insert(savedIDs, id)
-    saveIDs()
-    status.Text = "● ID BERHASIL DISIMPAN"
-end)
-
--- SAVED ID LIST
-local function createSavedPage(page, heading)
-    make("TextLabel", {
-        Size = UDim2.new(1, 0, 0, 25),
-        BackgroundTransparency = 1,
-        Text = heading,
-        TextColor3 = WHITE,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, page)
-
+-- SCROLL LIST HELPER
+local function createScroll(parent, topOffset)
     local scroll = make("ScrollingFrame", {
-        Position = UDim2.fromOffset(0, 30),
-        Size = UDim2.new(1, 0, 1, -30),
+        Position = UDim2.fromOffset(0, topOffset or 0),
+        Size = UDim2.new(1, 0, 1, -(topOffset or 0)),
         BackgroundColor3 = PANEL,
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
+        ScrollBarImageColor3 = PURPLE,
         CanvasSize = UDim2.fromOffset(0, 0)
-    }, page)
-
-    make("UICorner", {
-        CornerRadius = UDim.new(0, 9)
+    }, parent)
+    round(scroll, 10)
+    make("UIPadding", {
+        PaddingTop = UDim.new(0, 7),
+        PaddingBottom = UDim.new(0, 7),
+        PaddingLeft = UDim.new(0, 7),
+        PaddingRight = UDim.new(0, 7)
     }, scroll)
-
     local layout = make("UIListLayout", {
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder
     }, scroll)
-
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scroll.CanvasSize = UDim2.fromOffset(
-            0, layout.AbsoluteContentSize.Y + 10
-        )
+        scroll.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 18)
     end)
-
     return scroll
 end
 
--- PAGE 2: DATABASE
-local database = createSavedPage(pages[2], "DATABASE MUSIK")
+-- PAGE 2: DATABASE (PERSONAL COLLECTION)
+local databasePage = pages[2]
+label(databasePage, "DATABASE MUSIK", UDim2.new(1, 0, 0, 24),
+    UDim2.fromOffset(2, 0), 13, WHITE, true)
+local addSong = button(databasePage, "ï¼ TAMBAH",
+    UDim2.fromOffset(105, 30), UDim2.new(1, -107, 0, 0), PURPLE)
 
--- PAGE 3: DAFTAR MUSIK
-local playlist = createSavedPage(pages[3], "DAFTAR ID TERSIMPAN")
+local form = make("Frame", {
+    Position = UDim2.fromOffset(0, 36),
+    Size = UDim2.new(1, 0, 0, 122),
+    BackgroundColor3 = PANEL,
+    BorderSizePixel = 0,
+    Visible = false
+}, databasePage)
+round(form, 10)
 
-local function refreshLists()
-    for _, page in ipairs({database, playlist}) do
-        for _, child in ipairs(page:GetChildren()) do
-            if child:IsA("Frame") then
-                child:Destroy()
-            end
-        end
-    end
+label(form, "TAMBAH MUSIK BARU", UDim2.new(1, -16, 0, 20),
+    UDim2.fromOffset(10, 5), 11, WHITE, true)
+local songNameInput = textBox(form, "Kasih nama song...", UDim2.new(1, -20, 0, 32),
+    UDim2.fromOffset(10, 29))
+local songIdInput = textBox(form, "ID song...", UDim2.new(1, -20, 0, 32),
+    UDim2.fromOffset(10, 66))
+local confirmAdd = button(form, "TAMBAH", UDim2.fromOffset(90, 27),
+    UDim2.new(1, -100, 1, -32), PURPLE)
+local formStatus = label(form, "", UDim2.new(1, -110, 0, 24),
+    UDim2.fromOffset(10, 94), 10, MUTED, false)
 
-    for index, id in ipairs(savedIDs) do
-        for _, page in ipairs({database, playlist}) do
-            local item = make("Frame", {
-                Size = UDim2.new(1, -10, 0, 38),
-                BackgroundColor3 = Color3.fromRGB(40, 36, 47),
-                BorderSizePixel = 0,
-                LayoutOrder = index
-            }, page)
+local databaseScroll = createScroll(databasePage, 166)
 
-            make("UICorner", {
-                CornerRadius = UDim.new(0, 7)
-            }, item)
+-- PAGE 3: DAFTAR MUSIK (CATALOG)
+local playlistPage = pages[3]
+local searchInput = textBox(playlistPage, "Cari nama / pembuat / id...",
+    UDim2.new(1, 0, 0, 36), UDim2.fromOffset(0, 0))
+label(playlistPage, "GLOBAL HITS",
+    UDim2.new(1, 0, 0, 24), UDim2.fromOffset(3, 41), 10, MUTED, true)
+local playlistScroll = createScroll(playlistPage, 69)
 
-            make("TextLabel", {
-                Position = UDim2.fromOffset(8, 0),
-                Size = UDim2.new(1, -90, 1, 0),
-                BackgroundTransparency = 1,
-                Text = "♫  " .. tostring(id),
-                TextColor3 = WHITE,
-                Font = Enum.Font.Gotham,
-                TextSize = 11,
-                TextXAlignment = Enum.TextXAlignment.Left
-            }, item)
+-- Catalog stays empty until user provides song IDs.
+local catalogSongs = {}
 
-            local use = button(item, "PLAY",
-                UDim2.fromOffset(38, 27),
-                UDim2.new(1, -82, 0, 5), PURPLE)
-
-            use.Activated:Connect(function()
-                input.Text = tostring(id)
-                sound:Stop()
-                sound.SoundId = "rbxassetid://" .. tostring(id)
-                sound:Play()
-                status.Text = "● MEMUTAR ID TERSIMPAN"
-                switchPage(1)
-            end)
-
-            local delete = button(item, "×",
-                UDim2.fromOffset(32, 27),
-                UDim2.new(1, -39, 0, 5),
-                Color3.fromRGB(100, 45, 65))
-
-            delete.Activated:Connect(function()
-                for i, saved in ipairs(savedIDs) do
-                    if tostring(saved) == tostring(id) then
-                        table.remove(savedIDs, i)
-                        break
-                    end
-                end
-                saveIDs()
-                refreshLists()
-            end)
-        end
+local function clearSongRows(scroll)
+    for _, child in ipairs(scroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
     end
 end
 
-refreshLists()
+local refreshDatabase
 
-local oldSaveFunction = save.Activated
-save.Activated:Connect(refreshLists)
+local function makeSongRow(scroll, song, index, showDelete)
+    local row = make("Frame", {
+        Size = UDim2.new(1, -2, 0, 54),
+        BackgroundColor3 = CARD,
+        BorderSizePixel = 0,
+        LayoutOrder = index
+    }, scroll)
+    round(row, 9)
+
+    label(row, song.name, UDim2.new(1, -112, 0, 25),
+        UDim2.fromOffset(12, 5), 12, WHITE, true)
+    label(row, "ID " .. tostring(song.id), UDim2.new(1, -112, 0, 17),
+        UDim2.fromOffset(12, 29), 9, MUTED, false)
+
+    local play = button(row, "â¶", UDim2.fromOffset(34, 34),
+        UDim2.new(1, -43, 0, 10), Color3.fromRGB(235, 232, 240))
+    play.TextColor3 = DARK
+    play.Activated:Connect(function()
+        idInput.Text = tostring(song.id)
+        playID(song.id)
+        switchPage(1)
+    end)
+
+    if showDelete then
+        local delete = button(row, "Ã", UDim2.fromOffset(27, 27),
+            UDim2.new(1, -77, 0, 14), Color3.fromRGB(100, 45, 65))
+        delete.Activated:Connect(function()
+            for i, saved in ipairs(savedSongs) do
+                if tostring(saved.id) == tostring(song.id)
+                and tostring(saved.name) == tostring(song.name) then
+                    table.remove(savedSongs, i)
+                    break
+                end
+            end
+            saveDatabase()
+            if refreshDatabase then refreshDatabase() end
+        end)
+    end
+end
+
+refreshDatabase = function()
+    clearSongRows(databaseScroll)
+    if #savedSongs == 0 then
+        label(databaseScroll, "Belum ada lagu. Tekan + TAMBAH untuk membuat koleksi.",
+            UDim2.new(1, -8, 0, 42), UDim2.fromOffset(4, 0), 11, MUTED, false)
+        return
+    end
+    for i, song in ipairs(savedSongs) do
+        makeSongRow(databaseScroll, song, i, true)
+    end
+end
+
+local function refreshCatalog()
+    clearSongRows(playlistScroll)
+    local query = string.lower(searchInput.Text or "")
+    local shown = 0
+    for _, song in ipairs(catalogSongs) do
+        local haystack = string.lower(song.name .. " " .. tostring(song.id)
+            .. " " .. tostring(song.creator or ""))
+        if query == "" or string.find(haystack, query, 1, true) then
+            shown = shown + 1
+            makeSongRow(playlistScroll, song, shown, false)
+        end
+    end
+    if shown == 0 then
+        label(playlistScroll,
+            #catalogSongs == 0 and "Katalog masih kosong. Kirim nama lagu dan ID-nya untuk mengisi GLOBAL HITS."
+            or "Lagu tidak ditemukan.",
+            UDim2.new(1, -8, 0, 48), UDim2.fromOffset(4, 0), 11, MUTED, false)
+    end
+end
+
+addSong.Activated:Connect(function()
+    form.Visible = not form.Visible
+    if form.Visible then songNameInput:CaptureFocus() end
+end)
+
+confirmAdd.Activated:Connect(function()
+    local name = songNameInput.Text:match("^%s*(.-)%s*$")
+    local id = songIdInput.Text:match("^%s*(%d+)%s*$")
+    if not name or name == "" then
+        formStatus.Text = "Isi nama lagu dulu"
+        return
+    end
+    if not id then
+        formStatus.Text = "ID harus berupa angka"
+        return
+    end
+    for _, song in ipairs(savedSongs) do
+        if tostring(song.id) == id then
+            formStatus.Text = "ID sudah ada di database"
+            return
+        end
+    end
+    table.insert(savedSongs, {name = name, id = id})
+    saveDatabase()
+    songNameInput.Text = ""
+    songIdInput.Text = ""
+    formStatus.Text = "Berhasil ditambahkan!"
+    refreshDatabase()
+end)
+
+saveIdButton.Activated:Connect(function()
+    local id = idInput.Text:match("^%s*(%d+)%s*$")
+    if not id then status.Text = "MASUKKAN ID TERLEBIH DAHULU" return end
+    for _, song in ipairs(savedSongs) do
+        if tostring(song.id) == id then
+            status.Text = "ID SUDAH ADA DI DATABASE"
+            switchPage(2)
+            return
+        end
+    end
+    table.insert(savedSongs, {name = "Musik " .. id, id = id})
+    saveDatabase()
+    status.Text = "â ID DISIMPAN KE DATABASE"
+    refreshDatabase()
+end)
+
+searchInput:GetPropertyChangedSignal("Text"):Connect(refreshCatalog)
 
 -- PAGE 4: KREDIT
 local credits = pages[4]
-
+label(credits, "CEMOON MUSIC ð", UDim2.new(1, -10, 0, 30),
+    UDim2.fromOffset(5, 15), 18, WHITE, true)
 make("TextLabel", {
-    Position = UDim2.fromOffset(5, 15),
-    Size = UDim2.new(1, -10, 0, 35),
+    Position = UDim2.fromOffset(5, 52),
+    Size = UDim2.new(1, -10, 0, 110),
     BackgroundTransparency = 1,
-    Text = "CEMOON MUSIC 🌙",
-    TextColor3 = WHITE,
-    TextSize = 18,
-    Font = Enum.Font.GothamBold
-}, credits)
-
-make("TextLabel", {
-    Position = UDim2.fromOffset(5, 53),
-    Size = UDim2.new(1, -10, 0, 100),
-    BackgroundTransparency = 1,
-    Text = "LUNAR EDITION • VERSION 2.0\n\nDesigned for mobile & PC\nMusic Player • Database • Save ID\n\nMade with 💜 by Cemoon",
-    TextColor3 = Color3.fromRGB(170, 160, 185),
+    Text = "LUNAR EDITION â¢ VERSION 2.1\n\nMobile + PC Music Player\nPersonal Database â¢ Song Catalog\n\nMade with ð by Cemoon",
+    TextColor3 = MUTED,
     TextSize = 12,
     Font = Enum.Font.Gotham,
-    TextWrapped = true
+    TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top
 }, credits)
 
 -- MINIMIZE
 minimize.Activated:Connect(function()
     minimized = not minimized
-    content.Visible = not minimized
     nav.Visible = not minimized
-    main.Size = minimized
-        and UDim2.fromOffset(220, 53)
-        or UDim2.fromOffset(370, 330)
-    minimize.Text = minimized and "+" or "—"
+    content.Visible = not minimized
+    main.Size = minimized and UDim2.fromOffset(220, 58)
+        or UDim2.fromOffset(560, 410)
+    if not minimized then fitWindow() end
+    minimize.Text = minimized and "+" or "â"
 end)
 
--- RGB EFFECT
+-- RGB
 rgb.Activated:Connect(function()
     rgbEnabled = not rgbEnabled
     rgb.Text = rgbEnabled and "RGB ON" or "RGB"
@@ -482,18 +536,15 @@ task.spawn(function()
             local color = Color3.fromHSV(hue, 0.65, 0.95)
             stroke.Color = color
             rgb.BackgroundColor3 = color
-            for _, tab in ipairs(tabs) do
-                if tab.BackgroundColor3 ~= PANEL then
-                    tab.BackgroundColor3 = color
-                end
-            end
-            play.BackgroundColor3 = color
+            tabs[activeTab].BackgroundColor3 = color
         end
     end
 end)
 
 sound.Ended:Connect(function()
-    status.Text = "● MUSIK SELESAI"
+    status.Text = "â MUSIK SELESAI"
 end)
 
-print("CEMOON MUSIC v2.0 LOADED 🌙")
+refreshDatabase()
+refreshCatalog()
+print("CEMOON MUSIC v2.1 LOADED ð")
