@@ -1,7 +1,7 @@
 
 --==================================================
 -- CEMOON MUSIC 🌙
--- DRAGGABLE MOON EDITION
+-- FULL PANEL DRAG FIX EDITION
 --==================================================
 
 local Players = game:GetService("Players")
@@ -49,9 +49,12 @@ local function stroke(object, color, thickness)
     s.Parent = object
 end
 
+--==================================================
 -- DRAG SYSTEM: TOUCH + MOUSE
-local function makeDraggable(object, onClick)
-    object.Active = true
+--==================================================
+
+local function makeDraggable(handle, target, onClick)
+    handle.Active = true
 
     local dragging = false
     local moved = false
@@ -59,14 +62,14 @@ local function makeDraggable(object, onClick)
     local startInput
     local startPosition
 
-    object.InputBegan:Connect(function(input)
+    handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
             dragging = true
             moved = false
             startInput = input.Position
-            startPosition = object.Position
+            startPosition = target.Position
 
             if input.UserInputType == Enum.UserInputType.Touch then
                 dragInput = input
@@ -87,7 +90,7 @@ local function makeDraggable(object, onClick)
             end
 
             if moved then
-                object.Position = UDim2.new(
+                target.Position = UDim2.new(
                     startPosition.X.Scale,
                     startPosition.X.Offset + delta.X,
                     startPosition.Y.Scale,
@@ -138,24 +141,24 @@ stroke(menuButton, Color3.fromRGB(190, 120, 255), 2)
 
 local frame = Instance.new("Frame")
 frame.Name = "MusicPanel"
-frame.Size = UDim2.fromOffset(270, 190)
-frame.Position = UDim2.new(0.5, -135, 0.5, -95)
+frame.Size = UDim2.fromOffset(420, 315)
+frame.Position = UDim2.new(0.5, -210, 0.5, -157)
 frame.BackgroundColor3 = Color3.fromRGB(25, 15, 40)
 frame.Visible = false
 frame.Parent = gui
 
-corner(frame, 14)
+corner(frame, 18)
 stroke(frame, Color3.fromRGB(155, 90, 220), 2)
 
 -- TITLE / DRAG HANDLE
 local title = Instance.new("TextLabel")
 title.Name = "DragTitle"
-title.Size = UDim2.new(1, -20, 0, 42)
-title.Position = UDim2.fromOffset(10, 5)
+title.Size = UDim2.new(1, -20, 0, 55)
+title.Position = UDim2.fromOffset(10, 8)
 title.BackgroundTransparency = 1
 title.Text = "CEMOON MUSIC 🌙"
 title.TextColor3 = Color3.fromRGB(220, 175, 255)
-title.TextSize = 19
+title.TextSize = 22
 title.Font = Enum.Font.GothamBold
 title.Active = true
 title.Parent = frame
@@ -163,68 +166,70 @@ title.Parent = frame
 -- MUSIC ID
 local musicInput = Instance.new("TextBox")
 musicInput.Name = "MusicID"
-musicInput.Size = UDim2.new(1, -30, 0, 38)
-musicInput.Position = UDim2.fromOffset(15, 53)
+musicInput.Size = UDim2.new(1, -40, 0, 62)
+musicInput.Position = UDim2.fromOffset(20, 85)
 musicInput.BackgroundColor3 = Color3.fromRGB(55, 40, 70)
 musicInput.PlaceholderText = "Masukkan Music ID..."
 musicInput.PlaceholderColor3 = Color3.fromRGB(180, 160, 195)
 musicInput.Text = ""
 musicInput.TextColor3 = Color3.new(1, 1, 1)
-musicInput.TextSize = 14
+musicInput.TextSize = 18
 musicInput.Font = Enum.Font.Gotham
 musicInput.ClearTextOnFocus = false
 musicInput.Parent = frame
 
-corner(musicInput, 8)
+corner(musicInput, 12)
 
 -- STATUS
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, -20, 0, 25)
-status.Position = UDim2.fromOffset(10, 96)
+status.Size = UDim2.new(1, -20, 0, 35)
+status.Position = UDim2.fromOffset(10, 158)
 status.BackgroundTransparency = 1
 status.Text = "CEMOON READY 💜"
 status.TextColor3 = Color3.fromRGB(200, 165, 235)
-status.TextSize = 12
+status.TextSize = 16
 status.Font = Enum.Font.Gotham
 status.Parent = frame
 
 -- PLAY BUTTON
 local playButton = Instance.new("TextButton")
 playButton.Name = "Play"
-playButton.Size = UDim2.fromOffset(110, 38)
-playButton.Position = UDim2.fromOffset(15, 137)
+playButton.Size = UDim2.new(0.44, 0, 0, 62)
+playButton.Position = UDim2.fromOffset(20, 225)
 playButton.BackgroundColor3 = Color3.fromRGB(115, 60, 175)
 playButton.Text = "▶ PLAY"
 playButton.TextColor3 = Color3.new(1, 1, 1)
-playButton.TextSize = 14
+playButton.TextSize = 18
 playButton.Font = Enum.Font.GothamBold
 playButton.Parent = frame
 
-corner(playButton, 8)
+corner(playButton, 12)
 
 -- STOP BUTTON
 local stopButton = Instance.new("TextButton")
 stopButton.Name = "Stop"
-stopButton.Size = UDim2.fromOffset(110, 38)
-stopButton.Position = UDim2.new(1, -125, 0, 137)
+stopButton.Size = UDim2.new(0.44, 0, 0, 62)
+stopButton.Position = UDim2.new(0.56, -0, 0, 225)
 stopButton.BackgroundColor3 = Color3.fromRGB(85, 45, 110)
 stopButton.Text = "■ STOP"
 stopButton.TextColor3 = Color3.new(1, 1, 1)
-stopButton.TextSize = 14
+stopButton.TextSize = 18
 stopButton.Font = Enum.Font.GothamBold
 stopButton.Parent = frame
 
-corner(stopButton, 8)
+corner(stopButton, 12)
 
 --==================================================
 -- DRAG CONTROLS
 --==================================================
 
-makeDraggable(menuButton, function()
+-- Moon button: drag button, tap to toggle panel
+makeDraggable(menuButton, menuButton, function()
     frame.Visible = not frame.Visible
 end)
 
-makeDraggable(title)
+-- IMPORTANT: drag TITLE, move ENTIRE FRAME
+makeDraggable(title, frame)
 
 --==================================================
 -- PLAY MUSIC
@@ -258,4 +263,4 @@ sound.Ended:Connect(function()
     status.Text = "Musik selesai."
 end)
 
-print("CEMOON MUSIC DRAGGABLE LOADED 🌙")
+print("CEMOON MUSIC FULL PANEL DRAG LOADED 🌙")
